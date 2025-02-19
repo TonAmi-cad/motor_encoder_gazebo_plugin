@@ -1,0 +1,14 @@
+# Goal
+float64 target_angle  # Target angle in radians
+
+---
+# Result
+float64 final_angle   # Final achieved angle in radians
+bool success          # Whether movement completed successfully
+string message        # Status message
+
+---
+# Feedback
+float64 current_angle # Current angle in radians
+float64 remaining_angle # Remaining angle to target in radians
+string state          # Current state (MOVING, HOLDING, etc) 
