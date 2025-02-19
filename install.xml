@@ -1,0 +1,31 @@
+   
+    <xacro:property name="turret_control" default=""/>
+    <xacro:property name="joint_base_link_turret" value=""/>
+    <xacro:property name="turret_command_topic" value=""/>
+    <xacro:property name="turret_state_topic" value=""/>
+    <xacro:property name="trajectory_duration" value=""/>
+    <xacro:property name="max_acceleration" value=""/>
+    <xacro:property name="max_velocity" value=""/>
+    <xacro:property name="acceleration_profile" value=""/>
+    <xacro:property name="s_curve_steepness" value=""/>
+    <xacro:property name="initial_position" value=""/>
+    <xacro:property name="encoder_resolution" value=""/>
+    <xacro:property name="hold_time" value=""/>
+    <xacro:property name="rotation_direction" value=""/> <!-- CW/CCW -->
+
+    <gazebo>
+        <plugin name="${plug_name}" filename="libturret_control_plugin.so">
+            <joint>${joint_name}</joint>
+            <command_topic>${command_topic}</command_topic>
+            <state_topic>${state_topic}</state_topic>
+            <trajectory_duration>${trajectory_duration}</trajectory_duration>
+            <max_acceleration>${max_acceleration}</max_acceleration>
+            <max_velocity>${max_velocity}</max_velocity>
+            <acceleration_profile>${acceleration_profile}</acceleration_profile>
+            <s_curve_steepness>${s_curve_steepness}</s_curve_steepness>
+            <initial_position>${initial_position}</initial_position>
+            <encoder_resolution>${encoder_resolution}</encoder_resolution>
+            <hold_time>${hold_time}</hold_time>
+            <rotation_direction>${rotation_direction}</rotation_direction>
+        </plugin>
+    </gazebo>
