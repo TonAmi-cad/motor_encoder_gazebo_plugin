@@ -1,0 +1,9 @@
+<library path="gazebo_ros_control">
+  <class name="gazebo_ros_control/TurretControlPlugin"
+         type="gazebo_ros_control::TurretControlPlugin"
+         base_class_type="gazebo::ModelPlugin">
+    <description>
+      A plugin for controlling turret rotation in Gazebo.
+    </description>
+  </class>
+</library> 

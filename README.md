@@ -24,6 +24,13 @@ A ROS 2 Gazebo plugin for precise turret rotation control with multiple accelera
 - ROS 2 Action Server interface
 - Topic-based control interface
 
+### Best Practices
+For better maintainability and reusability, it's recommended to separate the ROS interface (messages, actions, services) into a dedicated interface package. This allows:
+- Cleaner dependency management
+- Easier integration with other packages
+- Better version control
+- Reduced compilation time for the main plugin package
+
 ### Dependencies
 - ROS 2 (Humble/Iron)
 - Gazebo

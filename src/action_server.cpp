@@ -1,6 +1,7 @@
 #include "gazebo_ros_control/action_server.hpp"
 #include <thread>
 #include <rclcpp/rclcpp.hpp>
+#include "link_msgs/action/turret_control.hpp"
 
 namespace gazebo_ros_control
 {

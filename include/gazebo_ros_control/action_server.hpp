@@ -2,7 +2,7 @@
 #define GAZEBO_ROS_CONTROL__ACTION_SERVER_HPP_
 
 #include <rclcpp_action/rclcpp_action.hpp>
-#include "gazebo_ros_control/action/turret_control.hpp"
+#include "link_msgs/action/turret_control.hpp"
 #include <memory>
 #include <functional>
 
@@ -12,7 +12,7 @@ namespace gazebo_ros_control
 class TurretActionServer
 {
 public:
-    using TurretAction = gazebo_ros_control::action::TurretControl;
+    using TurretAction = link_msgs::action::TurretControl;
     using GoalHandleTurret = rclcpp_action::ServerGoalHandle<TurretAction>;
 
     TurretActionServer(

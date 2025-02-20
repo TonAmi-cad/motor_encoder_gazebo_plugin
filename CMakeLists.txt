@@ -10,20 +10,12 @@ find_package(ament_cmake REQUIRED)
 find_package(gazebo_dev REQUIRED)
 find_package(gazebo_ros REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(controller_manager REQUIRED)
 find_package(hardware_interface REQUIRED)
-find_package(rosidl_default_generators REQUIRED)
-
-# Generate action interfaces first
-rosidl_generate_interfaces(${PROJECT_NAME}
-  "action/TurretControl.action"
-  DEPENDENCIES builtin_interfaces
-)
-
-# Get the include directories for generated interfaces
-rosidl_get_typesupport_target(cpp_typesupport_target "${PROJECT_NAME}" "rosidl_typesupport_cpp")
+find_package(link_msgs REQUIRED)
 
 # Create turret control plugin
 add_library(turret_control_plugin SHARED
@@ -39,9 +31,7 @@ target_include_directories(turret_control_plugin PUBLIC
   $<INSTALL_INTERFACE:include>
 )
 
-# Link against the generated interfaces
-target_link_libraries(turret_control_plugin "${cpp_typesupport_target}")
-
+# Link against dependencies
 ament_target_dependencies(turret_control_plugin
   "gazebo_dev"
   "gazebo_ros"
@@ -49,6 +39,7 @@ ament_target_dependencies(turret_control_plugin
   "rclcpp_action"
   "std_msgs"
   "geometry_msgs"
+  "link_msgs"
 )
 
 # Install plugin library
@@ -58,14 +49,21 @@ install(TARGETS turret_control_plugin
   RUNTIME DESTINATION bin
 )
 
+# Install plugin description
+install(FILES
+  gazebo_ros_control_plugins.xml
+  DESTINATION share/${PROJECT_NAME}
+)
+
+# Install headers
+install(
+  DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION include/${PROJECT_NAME}
+)
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
-  # the following line skips the linter which checks for copyrights
-  # comment the line when a copyright and license is added to all source files
   set(ament_cmake_copyright_FOUND TRUE)
-  # the following line skips cpplint (only works in a git repo)
-  # comment the line when this package is in a git repo and when
-  # a copyright and license is added to all source files
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()

@@ -3,18 +3,29 @@
 #include <cmath>
 #include <std_msgs/msg/float64.hpp>
 #include "gazebo_ros_control/acceleration_profiles.hpp"
-#include "gazebo_ros_control/action/turret_control.hpp"
+#include "link_msgs/action/turret_control.hpp"
+#include <std_msgs/msg/bool.hpp>
 
 namespace gazebo_ros_control
 {
 
 TurretControlPlugin::TurretControlPlugin():
+  // ROS objects
+  ros_node_(nullptr),
+  action_server_(nullptr),
+  twist_sub_(nullptr),
+  angle_sub_(nullptr),
+  state_pub_(nullptr),
+  state_timer_(nullptr),
+  
   // Gazebo objects
   model_(nullptr),
   joint_(nullptr),
   update_connection_(),
   
   // State variables
+  current_state_(TurretState::IDLE),
+  initial_reference_(0.0),
   target_velocity_(0.0),
   current_velocity_(0.0),
   start_velocity_(0.0),
@@ -24,18 +35,9 @@ TurretControlPlugin::TurretControlPlugin():
   current_position_(0.0),
   start_position_(0.0),
   last_command_time_(0),
-  initial_reference_(0.0),
-  current_state_(TurretState::IDLE),
   has_active_goal_(false),
-  
-  // ROS objects
-  ros_node_(nullptr),
-  twist_sub_(nullptr),
-  angle_sub_(nullptr),
-  state_pub_(nullptr),
-  state_timer_(nullptr),
-  action_server_(nullptr),
-  current_goal_handle_(nullptr)
+  current_goal_handle_(nullptr),
+  is_initialized_(false)
 {
     trajectory_calculator_ = std::make_shared<TrajectoryCalculator>();
 }
@@ -47,55 +49,100 @@ TurretControlPlugin::~TurretControlPlugin()
 
 void TurretControlPlugin::Load(gazebo::physics::ModelPtr model, sdf::ElementPtr sdf)
 {
-  model_ = model;
+    model_ = model;
+    is_initialized_ = false;
 
-  // Load parameters from SDF
-  LoadParameters(sdf);
+    // Load parameters from SDF
+    LoadParameters(sdf);
 
-  // Get joint
-  joint_ = model_->GetJoint(params_.joint_name);
-  if (!joint_) {
-    RCLCPP_ERROR(
-      rclcpp::get_logger("turret_control"),
-      "Joint named %s does not exist.", params_.joint_name.c_str());
-    return;
-  }
+    // Get joint
+    joint_ = model_->GetJoint(params_.joint_name);
+    if (!joint_) {
+        RCLCPP_ERROR(
+            rclcpp::get_logger("turret_control"),
+            "Joint named %s does not exist.", params_.joint_name.c_str());
+        return;
+    }
 
-  // Initialize joint position
-  InitializeJoint();
+    // Create ROS node
+    ros_node_ = gazebo_ros::Node::Get(sdf);
 
-  // Create ROS node
-  ros_node_ = gazebo_ros::Node::Get(sdf);
+    // Initialize health check publisher
+    InitializeHealthCheck();
 
-  // Create subscription to angle command topic
-  angle_sub_ = ros_node_->create_subscription<std_msgs::msg::Float64>(
-    params_.command_topic, 10,
-    std::bind(&TurretControlPlugin::OnAngleCommand, this, std::placeholders::_1));
+    // Initialize joint position
+    InitializeJoint();
 
-  // Create publisher for current state
-  state_pub_ = ros_node_->create_publisher<std_msgs::msg::Float64>(
-    params_.state_topic, 10);
+    // Create subscription to angle command topic
+    angle_sub_ = ros_node_->create_subscription<std_msgs::msg::Float64>(
+        params_.command_topic, 10,
+        std::bind(&TurretControlPlugin::OnAngleCommand, this, std::placeholders::_1));
 
-  // Create timer for publishing state
-  state_timer_ = ros_node_->create_wall_timer(
-    std::chrono::milliseconds(100),
-    std::bind(&TurretControlPlugin::PublishState, this));
+    // Create publisher for current state
+    state_pub_ = ros_node_->create_publisher<std_msgs::msg::Float64>(
+        params_.state_topic, 10);
 
-  // Connect to simulation update event
-  update_connection_ = gazebo::event::Events::ConnectWorldUpdateBegin(
-    std::bind(&TurretControlPlugin::UpdateChild, this));
+    // Create timer for publishing state
+    state_timer_ = ros_node_->create_wall_timer(
+        std::chrono::milliseconds(100),
+        std::bind(&TurretControlPlugin::PublishState, this));
 
-  // Создаем action server напрямую
-  action_server_ = rclcpp_action::create_server<TurretAction>(
-    ros_node_,
-    "turret_control",
-    std::bind(&TurretControlPlugin::handleGoal, this, std::placeholders::_1, std::placeholders::_2),
-    std::bind(&TurretControlPlugin::handleCancel, this, std::placeholders::_1),
-    std::bind(&TurretControlPlugin::handleAccepted, this, std::placeholders::_1));
+    // Connect to simulation update event
+    update_connection_ = gazebo::event::Events::ConnectWorldUpdateBegin(
+        std::bind(&TurretControlPlugin::UpdateChild, this));
 
-  RCLCPP_INFO(
-    rclcpp::get_logger("turret_control"),
-    "Turret control plugin loaded successfully with profile: %d", static_cast<int>(params_.profile));
+    // Создаем action server только если имя задано
+    if (!params_.action_name.empty()) {
+        action_server_ = rclcpp_action::create_server<TurretAction>(
+            ros_node_,
+            params_.action_name,  // Используем имя из параметров
+            std::bind(&TurretControlPlugin::handleGoal, this, std::placeholders::_1, std::placeholders::_2),
+            std::bind(&TurretControlPlugin::handleCancel, this, std::placeholders::_1),
+            std::bind(&TurretControlPlugin::handleAccepted, this, std::placeholders::_1));
+        
+        RCLCPP_INFO(
+            rclcpp::get_logger("turret_control"),
+            "Action server created with name: %s", 
+            params_.action_name.c_str());
+    }
+
+    // Mark as initialized
+    is_initialized_ = true;
+    RCLCPP_INFO(
+        rclcpp::get_logger("turret_control"),
+        "Turret control plugin initialized successfully for joint: %s", 
+        params_.joint_name.c_str());
+}
+
+void TurretControlPlugin::InitializeHealthCheck()
+{
+    // Создаем издателя для статуса жизни
+    health_pub_ = ros_node_->create_publisher<std_msgs::msg::Bool>(
+        "turret_health/" + params_.joint_name, 10);
+
+    // Создаем таймер для периодической публикации статуса
+    health_timer_ = ros_node_->create_wall_timer(
+        std::chrono::duration<double>(HEALTH_CHECK_PERIOD),
+        std::bind(&TurretControlPlugin::PublishHealth, this));
+
+    RCLCPP_INFO(
+        rclcpp::get_logger("turret_control"),
+        "Health check initialized for joint: %s", 
+        params_.joint_name.c_str());
+}
+
+void TurretControlPlugin::PublishHealth()
+{
+    auto msg = std_msgs::msg::Bool();
+    msg.data = is_initialized_ && joint_ && model_;
+    health_pub_->publish(msg);
+
+    if (!msg.data) {
+        RCLCPP_WARN(
+            rclcpp::get_logger("turret_control"),
+            "Health check failed for joint: %s", 
+            params_.joint_name.c_str());
+    }
 }
 
 double TurretControlPlugin::ApplyRotationDirection(double position) const {
@@ -198,6 +245,10 @@ void TurretControlPlugin::CheckHoldTimeout()
 
 void TurretControlPlugin::UpdateChild()
 {
+    if (!is_initialized_) {
+        return;
+    }
+
     CheckHoldTimeout();
 
     if (is_trajectory_active_) {

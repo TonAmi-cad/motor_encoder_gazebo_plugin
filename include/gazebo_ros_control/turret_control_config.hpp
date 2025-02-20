@@ -53,6 +53,8 @@ static const AccelerationProfile DEFAULT_PROFILE = AccelerationProfile::QUINTIC_
 // Default rotation direction
 static const RotationDirection DEFAULT_ROTATION_DIRECTION = RotationDirection::COUNTERCLOCKWISE;
 
+const std::string DEFAULT_ACTION_NAME = "";  // Пустое имя по умолчанию
+
 } // namespace config
 } // namespace gazebo_ros_control
 

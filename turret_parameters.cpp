@@ -63,6 +63,7 @@ void TurretControlPlugin::LoadParameters(sdf::ElementPtr sdf) {
     LoadParameter(sdf, "state_topic", params_.state_topic);
     LoadParameter(sdf, "encoder_resolution", params_.encoder_resolution);
     LoadParameter(sdf, "hold_time", params_.hold_time);
+    LoadParameter(sdf, "action_name", params_.action_name);
     
     // Load acceleration profile
     LoadAccelerationProfile(sdf, params_.profile);

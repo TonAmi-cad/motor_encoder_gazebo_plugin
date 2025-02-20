@@ -7,8 +7,9 @@
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <std_msgs/msg/float64.hpp>
+#include <std_msgs/msg/bool.hpp>
 #include "gazebo_ros_control/turret_control_config.hpp"
-#include "gazebo_ros_control/action/turret_control.hpp"
+#include "link_msgs/action/turret_control.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "gazebo_ros_control/action_server.hpp"
 #include "gazebo_ros_control/trajectory_calculator.hpp"
@@ -30,6 +31,7 @@ struct TurretControlParameters {
   double hold_time = config::DEFAULT_HOLD_TIME;
   AccelerationProfile profile = config::DEFAULT_PROFILE;
   RotationDirection rotation_direction = config::DEFAULT_ROTATION_DIRECTION;
+  std::string action_name = config::DEFAULT_ACTION_NAME;
 };
 
 class TurretControlPlugin : public gazebo::ModelPlugin
@@ -68,7 +70,7 @@ private:
   double GetCurrentAngleDegrees() const;
 
   // Action server type definitions
-  using TurretAction = gazebo_ros_control::action::TurretControl;
+  using TurretAction = link_msgs::action::TurretControl;
   using GoalHandleTurret = rclcpp_action::ServerGoalHandle<TurretAction>;
 
   // Action server callbacks
@@ -115,6 +117,16 @@ private:
   bool has_active_goal_;
 
   std::shared_ptr<TrajectoryCalculator> trajectory_calculator_;
+
+  // Добавляем новые члены для ноды жизни
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr health_pub_;
+  rclcpp::TimerBase::SharedPtr health_timer_;
+  bool is_initialized_;
+  const double HEALTH_CHECK_PERIOD = 1.0; // секунды
+
+  // Добавляем новые методы
+  void InitializeHealthCheck();
+  void PublishHealth();
 };
 }  // namespace gazebo_ros_control
 
